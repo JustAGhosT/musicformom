@@ -1,0 +1,20 @@
+{
+  "name": "musicformom",
+  "version": "1.0.0",
+  "description": "Simple YouTube audio downloader for Mom",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JustAGhosT/musicformom"
+  },
+  "keywords": ["tauri", "youtube", "downloader", "music"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.6"
+  }
+}

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Music For Mom</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      color: #333;
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      color: #666;
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 16px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      color: #333;
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    select {
+      width: 100%;
+      padding: 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 16px;
+      background: white;
+      cursor: pointer;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .folder-select {
+      display: flex;
+      gap: 10px;
+    }
+
+    .folder-select input {
+      flex: 1;
+    }
+
+    .folder-select button {
+      padding: 15px 20px;
+      background: #f0f0f0;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .folder-select button:hover {
+      background: #e0e0e0;
+    }
+
+    .download-btn {
+      width: 100%;
+      padding: 18px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      margin-top: 10px;
+    }
+
+    .download-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .download-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .progress-container {
+      margin-top: 25px;
+      display: none;
+    }
+
+    .progress-container.visible {
+      display: block;
+    }
+
+    .progress-bar {
+      height: 20px;
+      background: #e0e0e0;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    .progress-text {
+      text-align: center;
+      margin-top: 10px;
+      color: #666;
+      font-size: 14px;
+    }
+
+    .status {
+      text-align: center;
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 10px;
+      display: none;
+    }
+
+    .status.success {
+      display: block;
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status.error {
+      display: block;
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .status.warning {
+      display: block;
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .help-text {
+      font-size: 12px;
+      color: #888;
+      margin-top: 5px;
+    }
+
+    .quick-drives {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .drive-btn {
+      padding: 8px 16px;
+      background: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .drive-btn:hover {
+      background: #e0e0e0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Music For Mom</h1>
+    <p class="subtitle">Download YouTube music to your USB drive</p>
+
+    <div id="ytdlp-warning" class="status warning" style="display: none;">
+      yt-dlp is not installed! Please install it first.
+    </div>
+
+    <form id="download-form">
+      <div class="form-group">
+        <label for="url">YouTube Link</label>
+        <input
+          type="text"
+          id="url"
+          placeholder="Paste YouTube link here..."
+          autocomplete="off"
+        >
+        <p class="help-text">Works with songs, playlists, and albums</p>
+      </div>
+
+      <div class="form-group">
+        <label for="output-dir">Save To</label>
+        <div class="folder-select">
+          <input
+            type="text"
+            id="output-dir"
+            placeholder="Select folder..."
+            readonly
+          >
+          <button type="button" id="browse-btn">Browse</button>
+        </div>
+        <div id="quick-drives" class="quick-drives"></div>
+      </div>
+
+      <button type="submit" class="download-btn" id="download-btn">
+        Download Music
+      </button>
+    </form>
+
+    <div id="progress" class="progress-container">
+      <div class="progress-bar">
+        <div id="progress-fill" class="progress-fill"></div>
+      </div>
+      <p id="progress-text" class="progress-text">Starting download...</p>
+    </div>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <script type="module">
+    const { invoke } = window.__TAURI__.core;
+    const { listen } = window.__TAURI__.event;
+    const { open } = window.__TAURI__.dialog;
+
+    // Elements
+    const form = document.getElementById('download-form');
+    const urlInput = document.getElementById('url');
+    const outputDirInput = document.getElementById('output-dir');
+    const browseBtn = document.getElementById('browse-btn');
+    const downloadBtn = document.getElementById('download-btn');
+    const progressContainer = document.getElementById('progress');
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+    const statusDiv = document.getElementById('status');
+    const quickDrivesDiv = document.getElementById('quick-drives');
+    const ytdlpWarning = document.getElementById('ytdlp-warning');
+
+    // Check if yt-dlp is installed
+    async function checkYtdlp() {
+      try {
+        const installed = await invoke('check_ytdlp');
+        if (!installed) {
+          ytdlpWarning.style.display = 'block';
+        }
+      } catch (e) {
+        ytdlpWarning.style.display = 'block';
+      }
+    }
+
+    // Load available drives
+    async function loadDrives() {
+      try {
+        const drives = await invoke('list_drives');
+        quickDrivesDiv.innerHTML = '';
+
+        drives.forEach(drive => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'drive-btn';
+          btn.textContent = drive.name;
+          btn.onclick = () => {
+            outputDirInput.value = drive.path;
+          };
+          quickDrivesDiv.appendChild(btn);
+        });
+
+        if (drives.length === 0) {
+          quickDrivesDiv.innerHTML = '<span class="help-text">No USB drives detected</span>';
+        }
+      } catch (e) {
+        console.error('Failed to load drives:', e);
+      }
+    }
+
+    // Browse for folder
+    browseBtn.addEventListener('click', async () => {
+      try {
+        const selected = await open({
+          directory: true,
+          multiple: false,
+          title: 'Select folder to save music'
+        });
+        if (selected) {
+          outputDirInput.value = selected;
+        }
+      } catch (e) {
+        console.error('Failed to open folder dialog:', e);
+      }
+    });
+
+    // Listen for progress updates
+    listen('download-progress', (event) => {
+      const { status, message, percent } = event.payload;
+
+      progressContainer.classList.add('visible');
+      progressText.textContent = message;
+
+      if (percent !== null) {
+        progressFill.style.width = `${percent}%`;
+      }
+
+      if (status === 'complete') {
+        showStatus('success', message);
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = 'Download Music';
+      }
+    });
+
+    // Handle form submission
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const url = urlInput.value.trim();
+      const outputDir = outputDirInput.value.trim();
+
+      if (!url) {
+        showStatus('error', 'Please paste a YouTube link');
+        return;
+      }
+
+      if (!outputDir) {
+        showStatus('error', 'Please select a folder to save music');
+        return;
+      }
+
+      // Validate URL
+      if (!url.includes('youtube.com') && !url.includes('youtu.be')) {
+        showStatus('error', 'Please enter a valid YouTube link');
+        return;
+      }
+
+      // Start download
+      downloadBtn.disabled = true;
+      downloadBtn.textContent = 'Downloading...';
+      statusDiv.className = 'status';
+      statusDiv.style.display = 'none';
+      progressContainer.classList.add('visible');
+      progressFill.style.width = '0%';
+      progressText.textContent = 'Starting download...';
+
+      try {
+        await invoke('download_audio', { url, outputDir });
+      } catch (error) {
+        showStatus('error', `Error: ${error}`);
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = 'Download Music';
+        progressContainer.classList.remove('visible');
+      }
+    });
+
+    function showStatus(type, message) {
+      statusDiv.className = `status ${type}`;
+      statusDiv.textContent = message;
+      statusDiv.style.display = 'block';
+    }
+
+    // Initialize
+    checkYtdlp();
+    loadDrives();
+
+    // Refresh drives every 5 seconds (in case USB is plugged in)
+    setInterval(loadDrives, 5000);
+  </script>
+</body>
+</html>
