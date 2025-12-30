@@ -4,6 +4,7 @@
   "description": "Simple YouTube audio downloader for Mom",
   "scripts": {
     "tauri": "tauri",
+    "start": "tauri dev",
     "dev": "tauri dev",
     "build": "tauri build"
   },

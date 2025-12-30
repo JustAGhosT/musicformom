@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use tauri::{Manager, State};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
@@ -34,15 +35,26 @@ pub struct YouTubeConfig {
     client_secret: String,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+pub struct HistoryItem {
+    title: String,
+    url: String,
+    timestamp: i64,
+    output_dir: String,
+}
+
 #[derive(Clone, Serialize, Deserialize, Default)]
 struct PersistedData {
     config: YouTubeConfig,
     auth: AuthState,
+    history: Vec<HistoryItem>,
 }
 
 pub struct AppState {
     auth: Mutex<AuthState>,
     config: Mutex<YouTubeConfig>,
+    history: Mutex<Vec<HistoryItem>>,
+    cancel_flag: Arc<AtomicBool>,
 }
 
 // YouTube API response types
@@ -122,7 +134,6 @@ struct PlaylistItemStatus {
     privacy_status: Option<String>,
 }
 
-// Simplified types for frontend
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PlaylistInfo {
     id: String,
@@ -161,7 +172,7 @@ fn load_persisted_data() -> PersistedData {
         .unwrap_or_default()
 }
 
-fn save_persisted_data(config: &YouTubeConfig, auth: &AuthState) {
+fn save_persisted_data(config: &YouTubeConfig, auth: &AuthState, history: &[HistoryItem]) {
     if let Some(path) = get_config_path() {
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
@@ -169,6 +180,7 @@ fn save_persisted_data(config: &YouTubeConfig, auth: &AuthState) {
         let data = PersistedData {
             config: config.clone(),
             auth: auth.clone(),
+            history: history.to_vec(),
         };
         if let Ok(json) = serde_json::to_string_pretty(&data) {
             let _ = std::fs::write(path, json);
@@ -260,11 +272,58 @@ async fn check_ffmpeg() -> Result<bool, String> {
 }
 
 #[tauri::command]
+async fn update_ytdlp(app: tauri::AppHandle) -> Result<String, String> {
+    let _ = app.emit(
+        "download-progress",
+        DownloadProgress {
+            status: "updating".to_string(),
+            message: "Updating yt-dlp...".to_string(),
+            percent: Some(50.0),
+        },
+    );
+
+    let output = Command::new("yt-dlp")
+        .arg("-U")
+        .output()
+        .await
+        .map_err(|e| format!("Failed to update yt-dlp: {}", e))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    let _ = app.emit(
+        "download-progress",
+        DownloadProgress {
+            status: "complete".to_string(),
+            message: "yt-dlp updated!".to_string(),
+            percent: Some(100.0),
+        },
+    );
+
+    if output.status.success() {
+        Ok(format!("{}\n{}", stdout, stderr))
+    } else {
+        Err(format!("Update failed: {}", stderr))
+    }
+}
+
+#[tauri::command]
+async fn cancel_download(state: State<'_, AppState>) -> Result<(), String> {
+    state.cancel_flag.store(true, Ordering::SeqCst);
+    Ok(())
+}
+
+#[tauri::command]
 async fn download_audio(
     app: tauri::AppHandle,
+    state: State<'_, AppState>,
     url: String,
     output_dir: String,
 ) -> Result<String, String> {
+    // Reset cancel flag
+    state.cancel_flag.store(false, Ordering::SeqCst);
+    let cancel_flag = state.cancel_flag.clone();
+
     let _ = app.emit(
         "download-progress",
         DownloadProgress {
@@ -286,9 +345,10 @@ async fn download_audio(
             "--audio-quality", "0",
             "--embed-thumbnail",
             "--add-metadata",
-            "--no-overwrites",          // Skip if file exists
-            "--restrict-filenames",     // Safe filenames
+            "--no-overwrites",
+            "--restrict-filenames",
             "--newline",
+            "--print", "%(title)s",
             "-o", &output_template,
             &url,
         ])
@@ -301,12 +361,18 @@ async fn download_audio(
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
 
     let app_clone = app.clone();
+    let cancel_flag_clone = cancel_flag.clone();
 
     let stdout_handle = tokio::spawn(async move {
         let reader = BufReader::new(stdout);
         let mut lines = reader.lines();
+        let mut title = String::new();
 
         while let Ok(Some(line)) = lines.next_line().await {
+            if cancel_flag_clone.load(Ordering::SeqCst) {
+                break;
+            }
+
             if line.contains("[download]") {
                 if let Some(percent_str) = line
                     .split_whitespace()
@@ -333,8 +399,11 @@ async fn download_audio(
                         percent: Some(95.0),
                     },
                 );
+            } else if !line.starts_with('[') && !line.is_empty() && title.is_empty() {
+                title = line.clone();
             }
         }
+        title
     });
 
     let stderr_handle = tokio::spawn(async move {
@@ -350,15 +419,61 @@ async fn download_audio(
         errors
     });
 
+    // Check for cancellation
+    let cancel_check = cancel_flag.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            if cancel_check.load(Ordering::SeqCst) {
+                break;
+            }
+        }
+    });
+
+    if cancel_flag.load(Ordering::SeqCst) {
+        let _ = child.kill().await;
+        let _ = app.emit(
+            "download-progress",
+            DownloadProgress {
+                status: "cancelled".to_string(),
+                message: "Download cancelled".to_string(),
+                percent: Some(0.0),
+            },
+        );
+        return Err("Download cancelled".to_string());
+    }
+
     let status = child
         .wait()
         .await
         .map_err(|e| format!("Process error: {}", e))?;
 
-    let _ = stdout_handle.await;
+    let title = stdout_handle.await.unwrap_or_default();
     let errors = stderr_handle.await.unwrap_or_default();
 
+    if cancel_flag.load(Ordering::SeqCst) {
+        return Err("Download cancelled".to_string());
+    }
+
     if status.success() {
+        // Add to history
+        {
+            let config = state.config.lock().map_err(|e| e.to_string())?;
+            let auth = state.auth.lock().map_err(|e| e.to_string())?;
+            let mut history = state.history.lock().map_err(|e| e.to_string())?;
+
+            history.insert(0, HistoryItem {
+                title: if title.is_empty() { url.clone() } else { title },
+                url: url.clone(),
+                timestamp: chrono_timestamp(),
+                output_dir: output_dir.clone(),
+            });
+
+            // Keep only last 50 items
+            history.truncate(50);
+            save_persisted_data(&config, &auth, &history);
+        }
+
         let _ = app.emit(
             "download-progress",
             DownloadProgress {
@@ -381,21 +496,38 @@ async fn download_audio(
 #[tauri::command]
 async fn download_videos(
     app: tauri::AppHandle,
+    state: State<'_, AppState>,
     video_ids: Vec<String>,
     output_dir: String,
 ) -> Result<String, String> {
+    state.cancel_flag.store(false, Ordering::SeqCst);
+    let cancel_flag = state.cancel_flag.clone();
+
     let total = video_ids.len();
     let mut successful = 0;
     let mut failed = 0;
+    let mut downloaded_titles = Vec::new();
 
     for (idx, video_id) in video_ids.iter().enumerate() {
+        if cancel_flag.load(Ordering::SeqCst) {
+            let _ = app.emit(
+                "download-progress",
+                DownloadProgress {
+                    status: "cancelled".to_string(),
+                    message: format!("Cancelled after {} downloads", successful),
+                    percent: Some(0.0),
+                },
+            );
+            return Err(format!("Cancelled after {} downloads", successful));
+        }
+
         let url = format!("https://www.youtube.com/watch?v={}", video_id);
 
         let _ = app.emit(
             "download-progress",
             DownloadProgress {
                 status: "downloading".to_string(),
-                message: format!("Downloading {}/{}: {}", idx + 1, total, video_id),
+                message: format!("Downloading {}/{}...", idx + 1, total),
                 percent: Some(((idx as f32) / (total as f32)) * 100.0),
             },
         );
@@ -405,7 +537,7 @@ async fn download_videos(
             .to_string_lossy()
             .to_string();
 
-        let status = Command::new("yt-dlp")
+        let output = Command::new("yt-dlp")
             .args([
                 "-x",
                 "--audio-format", "mp3",
@@ -414,19 +546,45 @@ async fn download_videos(
                 "--add-metadata",
                 "--no-overwrites",
                 "--restrict-filenames",
+                "--print", "%(title)s",
                 "-o", &output_template,
                 &url,
             ])
-            .status()
+            .output()
             .await;
 
-        match status {
-            Ok(s) if s.success() => successful += 1,
+        match output {
+            Ok(o) if o.status.success() => {
+                successful += 1;
+                let title = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                if !title.is_empty() {
+                    downloaded_titles.push(title);
+                }
+            }
             _ => {
                 failed += 1;
                 log::warn!("Failed to download video: {}", video_id);
             }
         }
+    }
+
+    // Add to history
+    {
+        let config = state.config.lock().map_err(|e| e.to_string())?;
+        let auth = state.auth.lock().map_err(|e| e.to_string())?;
+        let mut history = state.history.lock().map_err(|e| e.to_string())?;
+
+        for title in downloaded_titles {
+            history.insert(0, HistoryItem {
+                title,
+                url: "playlist".to_string(),
+                timestamp: chrono_timestamp(),
+                output_dir: output_dir.clone(),
+            });
+        }
+
+        history.truncate(50);
+        save_persisted_data(&config, &auth, &history);
     }
 
     let message = if failed == 0 {
@@ -447,6 +605,25 @@ async fn download_videos(
     Ok(message)
 }
 
+// ============ History ============
+
+#[tauri::command]
+async fn get_history(state: State<'_, AppState>) -> Result<Vec<HistoryItem>, String> {
+    let history = state.history.lock().map_err(|e| e.to_string())?;
+    Ok(history.clone())
+}
+
+#[tauri::command]
+async fn clear_history(state: State<'_, AppState>) -> Result<(), String> {
+    let config = state.config.lock().map_err(|e| e.to_string())?;
+    let auth = state.auth.lock().map_err(|e| e.to_string())?;
+    let mut history = state.history.lock().map_err(|e| e.to_string())?;
+
+    history.clear();
+    save_persisted_data(&config, &auth, &history);
+    Ok(())
+}
+
 // ============ OAuth & YouTube API ============
 
 const REDIRECT_URI: &str = "http://127.0.0.1:8585/callback";
@@ -463,7 +640,8 @@ async fn set_youtube_config(
     config.client_secret = client_secret;
 
     let auth = state.auth.lock().map_err(|e| e.to_string())?;
-    save_persisted_data(&config, &auth);
+    let history = state.history.lock().map_err(|e| e.to_string())?;
+    save_persisted_data(&config, &auth, &history);
     Ok(())
 }
 
@@ -529,7 +707,6 @@ async fn wait_for_oauth_callback(state: State<'_, AppState>) -> Result<bool, Str
     );
     let _ = request.respond(response);
 
-    // Check for error in callback
     let parsed_url = url::Url::parse(&format!("http://localhost{}", url))
         .map_err(|e| format!("Failed to parse callback URL: {}", e))?;
 
@@ -573,7 +750,8 @@ async fn wait_for_oauth_callback(state: State<'_, AppState>) -> Result<bool, Str
     auth.expires_at = Some(chrono_timestamp() + tokens.expires_in);
 
     let config = state.config.lock().map_err(|e| e.to_string())?;
-    save_persisted_data(&config, &auth);
+    let history = state.history.lock().map_err(|e| e.to_string())?;
+    save_persisted_data(&config, &auth, &history);
 
     Ok(true)
 }
@@ -584,7 +762,8 @@ async fn logout(state: State<'_, AppState>) -> Result<(), String> {
     *auth = AuthState::default();
 
     let config = state.config.lock().map_err(|e| e.to_string())?;
-    save_persisted_data(&config, &auth);
+    let history = state.history.lock().map_err(|e| e.to_string())?;
+    save_persisted_data(&config, &auth, &history);
     Ok(())
 }
 
@@ -595,7 +774,6 @@ async fn get_my_playlists(state: State<'_, AppState>) -> Result<Vec<PlaylistInfo
     let client = reqwest::Client::new();
     let mut playlists = Vec::new();
 
-    // Add "Liked Videos" playlist manually (special playlist)
     playlists.push(PlaylistInfo {
         id: "LL".to_string(),
         title: "Liked Videos".to_string(),
@@ -703,13 +881,11 @@ async fn get_playlist_videos(
             .map_err(|e| format!("Failed to parse response: {}", e))?;
 
         for item in data.items.unwrap_or_default() {
-            // Skip deleted or private videos
             let title = &item.snippet.title;
             if title == "Deleted video" || title == "Private video" {
                 continue;
             }
 
-            // Skip if no video ID
             let Some(content) = item.content_details else {
                 continue;
             };
@@ -775,7 +951,8 @@ async fn get_valid_token(state: &State<'_, AppState>) -> Result<String, String> 
                     auth.access_token = Some(tokens.access_token.clone());
                     auth.expires_at = Some(chrono_timestamp() + tokens.expires_in);
 
-                    save_persisted_data(&config, &auth);
+                    let history = state.history.lock().map_err(|e| e.to_string())?;
+                    save_persisted_data(&config, &auth, &history);
 
                     return Ok(tokens.access_token);
                 }
@@ -798,7 +975,6 @@ fn chrono_timestamp() -> i64 {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Load persisted data
     let persisted = load_persisted_data();
 
     tauri::Builder::default()
@@ -807,6 +983,8 @@ pub fn run() {
         .manage(AppState {
             auth: Mutex::new(persisted.auth),
             config: Mutex::new(persisted.config),
+            history: Mutex::new(persisted.history),
+            cancel_flag: Arc::new(AtomicBool::new(false)),
         })
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -822,8 +1000,12 @@ pub fn run() {
             list_drives,
             check_ytdlp,
             check_ffmpeg,
+            update_ytdlp,
+            cancel_download,
             download_audio,
             download_videos,
+            get_history,
+            clear_history,
             set_youtube_config,
             get_youtube_config,
             get_auth_status,
