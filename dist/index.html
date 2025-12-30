@@ -427,6 +427,9 @@
     <div id="ytdlp-warning" class="status warning" style="display: none;">
       yt-dlp is not installed. Please install it first.
     </div>
+    <div id="ffmpeg-warning" class="status warning" style="display: none;">
+      FFmpeg is not installed. Required for MP3 conversion.
+    </div>
 
     <div class="tabs">
       <button class="tab active" data-tab="download">Download</button>
@@ -587,16 +590,51 @@
       });
     });
 
-    // Check yt-dlp
-    async function checkYtdlp() {
+    // Check yt-dlp and ffmpeg
+    async function checkDependencies() {
       try {
-        const installed = await invoke('check_ytdlp');
-        if (!installed) {
+        const ytdlp = await invoke('check_ytdlp');
+        if (!ytdlp) {
           document.getElementById('ytdlp-warning').style.display = 'block';
         }
       } catch (e) {
         document.getElementById('ytdlp-warning').style.display = 'block';
       }
+
+      try {
+        const ffmpeg = await invoke('check_ffmpeg');
+        if (!ffmpeg) {
+          document.getElementById('ffmpeg-warning').style.display = 'block';
+        }
+      } catch (e) {
+        document.getElementById('ffmpeg-warning').style.display = 'block';
+      }
+    }
+
+    // Load saved config
+    async function loadSavedConfig() {
+      try {
+        const config = await invoke('get_youtube_config');
+        if (config.client_id) {
+          document.getElementById('client-id').value = config.client_id;
+        }
+        if (config.client_secret) {
+          document.getElementById('client-secret').value = '••••••••••••••••';
+        }
+      } catch (e) {
+        console.error('Failed to load config:', e);
+      }
+    }
+
+    // Reset progress bar
+    function resetProgress(prefix = '') {
+      const progressContainer = document.getElementById(`${prefix}progress`);
+      const progressFill = document.getElementById(`${prefix}progress-fill`);
+      const progressText = document.getElementById(`${prefix}progress-text`);
+
+      if (progressContainer) progressContainer.classList.remove('visible');
+      if (progressFill) progressFill.style.width = '0%';
+      if (progressText) progressText.textContent = 'Starting...';
     }
 
     // Load drives
@@ -654,6 +692,8 @@
       const btn = document.getElementById('download-btn');
       btn.disabled = true;
       btn.textContent = 'Downloading...';
+      resetProgress();
+      document.getElementById('status').style.display = 'none';
       document.getElementById('progress').classList.add('visible');
 
       try {
@@ -858,6 +898,8 @@
       const btn = document.getElementById('download-selected-btn');
       btn.disabled = true;
       btn.textContent = 'Downloading...';
+      resetProgress('playlist-');
+      document.getElementById('playlist-status').style.display = 'none';
       document.getElementById('playlist-progress').classList.add('visible');
 
       try {
@@ -903,8 +945,9 @@
     }
 
     // Init
-    checkYtdlp();
+    checkDependencies();
     loadDrives();
+    loadSavedConfig();
     setInterval(loadDrives, 5000);
   </script>
 </body>

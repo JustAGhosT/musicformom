@@ -34,6 +34,12 @@ pub struct YouTubeConfig {
     client_secret: String,
 }
 
+#[derive(Clone, Serialize, Deserialize, Default)]
+struct PersistedData {
+    config: YouTubeConfig,
+    auth: AuthState,
+}
+
 pub struct AppState {
     auth: Mutex<AuthState>,
     config: Mutex<YouTubeConfig>,
@@ -42,7 +48,7 @@ pub struct AppState {
 // YouTube API response types
 #[derive(Serialize, Deserialize, Debug)]
 struct YouTubePlaylistsResponse {
-    items: Vec<YouTubePlaylist>,
+    items: Option<Vec<YouTubePlaylist>>,
     #[serde(rename = "nextPageToken")]
     next_page_token: Option<String>,
 }
@@ -58,7 +64,7 @@ pub struct YouTubePlaylist {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct PlaylistSnippet {
     title: String,
-    description: String,
+    description: Option<String>,
     thumbnails: Option<Thumbnails>,
 }
 
@@ -72,6 +78,7 @@ struct PlaylistContentDetails {
 struct Thumbnails {
     default: Option<Thumbnail>,
     medium: Option<Thumbnail>,
+    high: Option<Thumbnail>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -81,7 +88,7 @@ struct Thumbnail {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct YouTubePlaylistItemsResponse {
-    items: Vec<YouTubePlaylistItem>,
+    items: Option<Vec<YouTubePlaylistItem>>,
     #[serde(rename = "nextPageToken")]
     next_page_token: Option<String>,
 }
@@ -90,13 +97,14 @@ struct YouTubePlaylistItemsResponse {
 pub struct YouTubePlaylistItem {
     snippet: PlaylistItemSnippet,
     #[serde(rename = "contentDetails")]
-    content_details: PlaylistItemContentDetails,
+    content_details: Option<PlaylistItemContentDetails>,
+    status: Option<PlaylistItemStatus>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct PlaylistItemSnippet {
     title: String,
-    description: String,
+    description: Option<String>,
     thumbnails: Option<Thumbnails>,
     #[serde(rename = "videoOwnerChannelTitle")]
     channel_title: Option<String>,
@@ -106,6 +114,12 @@ struct PlaylistItemSnippet {
 struct PlaylistItemContentDetails {
     #[serde(rename = "videoId")]
     video_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct PlaylistItemStatus {
+    #[serde(rename = "privacyStatus")]
+    privacy_status: Option<String>,
 }
 
 // Simplified types for frontend
@@ -131,6 +145,35 @@ struct TokenResponse {
     access_token: String,
     refresh_token: Option<String>,
     expires_in: i64,
+}
+
+// ============ Persistence ============
+
+fn get_config_path() -> Option<PathBuf> {
+    directories::ProjectDirs::from("com", "musicformom", "MusicForMom")
+        .map(|dirs| dirs.config_dir().join("config.json"))
+}
+
+fn load_persisted_data() -> PersistedData {
+    get_config_path()
+        .and_then(|path| std::fs::read_to_string(path).ok())
+        .and_then(|data| serde_json::from_str(&data).ok())
+        .unwrap_or_default()
+}
+
+fn save_persisted_data(config: &YouTubeConfig, auth: &AuthState) {
+    if let Some(path) = get_config_path() {
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let data = PersistedData {
+            config: config.clone(),
+            auth: auth.clone(),
+        };
+        if let Ok(json) = serde_json::to_string_pretty(&data) {
+            let _ = std::fs::write(path, json);
+        }
+    }
 }
 
 // ============ Drive Detection ============
@@ -202,11 +245,17 @@ async fn list_drives() -> Result<Vec<DriveInfo>, String> {
     Ok(drives)
 }
 
-// ============ yt-dlp ============
+// ============ yt-dlp & ffmpeg ============
 
 #[tauri::command]
 async fn check_ytdlp() -> Result<bool, String> {
     let result = Command::new("yt-dlp").arg("--version").output().await;
+    Ok(result.is_ok())
+}
+
+#[tauri::command]
+async fn check_ffmpeg() -> Result<bool, String> {
+    let result = Command::new("ffmpeg").arg("-version").output().await;
     Ok(result.is_ok())
 }
 
@@ -233,15 +282,14 @@ async fn download_audio(
     let mut child = Command::new("yt-dlp")
         .args([
             "-x",
-            "--audio-format",
-            "mp3",
-            "--audio-quality",
-            "0",
+            "--audio-format", "mp3",
+            "--audio-quality", "0",
             "--embed-thumbnail",
             "--add-metadata",
+            "--no-overwrites",          // Skip if file exists
+            "--restrict-filenames",     // Safe filenames
             "--newline",
-            "-o",
-            &output_template,
+            "-o", &output_template,
             &url,
         ])
         .stdout(Stdio::piped())
@@ -337,6 +385,8 @@ async fn download_videos(
     output_dir: String,
 ) -> Result<String, String> {
     let total = video_ids.len();
+    let mut successful = 0;
+    let mut failed = 0;
 
     for (idx, video_id) in video_ids.iter().enumerate() {
         let url = format!("https://www.youtube.com/watch?v={}", video_id);
@@ -345,8 +395,8 @@ async fn download_videos(
             "download-progress",
             DownloadProgress {
                 status: "downloading".to_string(),
-                message: format!("Downloading {}/{}", idx + 1, total),
-                percent: Some((idx as f32 / total as f32) * 100.0),
+                message: format!("Downloading {}/{}: {}", idx + 1, total, video_id),
+                percent: Some(((idx as f32) / (total as f32)) * 100.0),
             },
         );
 
@@ -362,28 +412,39 @@ async fn download_videos(
                 "--audio-quality", "0",
                 "--embed-thumbnail",
                 "--add-metadata",
+                "--no-overwrites",
+                "--restrict-filenames",
                 "-o", &output_template,
                 &url,
             ])
             .status()
-            .await
-            .map_err(|e| format!("Failed to download {}: {}", video_id, e))?;
+            .await;
 
-        if !status.success() {
-            log::warn!("Failed to download video: {}", video_id);
+        match status {
+            Ok(s) if s.success() => successful += 1,
+            _ => {
+                failed += 1;
+                log::warn!("Failed to download video: {}", video_id);
+            }
         }
     }
+
+    let message = if failed == 0 {
+        format!("Downloaded {} songs!", successful)
+    } else {
+        format!("Downloaded {} songs ({} failed)", successful, failed)
+    };
 
     let _ = app.emit(
         "download-progress",
         DownloadProgress {
             status: "complete".to_string(),
-            message: format!("Downloaded {} songs!", total),
+            message: message.clone(),
             percent: Some(100.0),
         },
     );
 
-    Ok(format!("Downloaded {} songs!", total))
+    Ok(message)
 }
 
 // ============ OAuth & YouTube API ============
@@ -400,7 +461,16 @@ async fn set_youtube_config(
     let mut config = state.config.lock().map_err(|e| e.to_string())?;
     config.client_id = client_id;
     config.client_secret = client_secret;
+
+    let auth = state.auth.lock().map_err(|e| e.to_string())?;
+    save_persisted_data(&config, &auth);
     Ok(())
+}
+
+#[tauri::command]
+async fn get_youtube_config(state: State<'_, AppState>) -> Result<YouTubeConfig, String> {
+    let config = state.config.lock().map_err(|e| e.to_string())?;
+    Ok(config.clone())
 }
 
 #[tauri::command]
@@ -414,7 +484,7 @@ async fn start_oauth(state: State<'_, AppState>) -> Result<String, String> {
     let config = state.config.lock().map_err(|e| e.to_string())?;
 
     if config.client_id.is_empty() {
-        return Err("YouTube API not configured. Please add your Client ID and Secret.".to_string());
+        return Err("YouTube API not configured. Please add your Client ID and Secret in Settings.".to_string());
     }
 
     let auth_url = format!(
@@ -430,7 +500,6 @@ async fn start_oauth(state: State<'_, AppState>) -> Result<String, String> {
         urlencoding::encode(OAUTH_SCOPES)
     );
 
-    // Open browser for OAuth
     open::that(&auth_url).map_err(|e| format!("Failed to open browser: {}", e))?;
 
     Ok("Opened browser for login".to_string())
@@ -443,11 +512,9 @@ async fn wait_for_oauth_callback(state: State<'_, AppState>) -> Result<bool, Str
         c.clone()
     };
 
-    // Start a local server to capture the OAuth callback
     let server = tiny_http::Server::http("127.0.0.1:8585")
         .map_err(|e| format!("Failed to start callback server: {}", e))?;
 
-    // Wait for the callback (with timeout)
     let request = server
         .recv_timeout(std::time::Duration::from_secs(120))
         .map_err(|e| format!("Timeout waiting for login: {}", e))?
@@ -455,17 +522,20 @@ async fn wait_for_oauth_callback(state: State<'_, AppState>) -> Result<bool, Str
 
     let url = request.url().to_string();
 
-    // Send a nice response to the browser
     let response = tiny_http::Response::from_string(
-        "<html><body><h1>Login successful!</h1><p>You can close this window and return to Music For Mom.</p></body></html>"
+        "<html><head><style>body{font-family:system-ui;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#667eea;color:white;}</style></head><body><div style='text-align:center'><h1>Login Successful!</h1><p>You can close this window.</p></div></body></html>"
     ).with_header(
         tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/html"[..]).unwrap()
     );
     let _ = request.respond(response);
 
-    // Extract the authorization code
+    // Check for error in callback
     let parsed_url = url::Url::parse(&format!("http://localhost{}", url))
         .map_err(|e| format!("Failed to parse callback URL: {}", e))?;
+
+    if let Some((_, error)) = parsed_url.query_pairs().find(|(k, _)| k == "error") {
+        return Err(format!("Login failed: {}", error));
+    }
 
     let code = parsed_url
         .query_pairs()
@@ -473,7 +543,6 @@ async fn wait_for_oauth_callback(state: State<'_, AppState>) -> Result<bool, Str
         .map(|(_, value)| value.to_string())
         .ok_or("No authorization code in callback")?;
 
-    // Exchange code for tokens
     let client = reqwest::Client::new();
     let token_response = client
         .post("https://oauth2.googleapis.com/token")
@@ -498,11 +567,13 @@ async fn wait_for_oauth_callback(state: State<'_, AppState>) -> Result<bool, Str
         .await
         .map_err(|e| format!("Failed to parse tokens: {}", e))?;
 
-    // Store tokens
     let mut auth = state.auth.lock().map_err(|e| e.to_string())?;
     auth.access_token = Some(tokens.access_token);
     auth.refresh_token = tokens.refresh_token.or(auth.refresh_token.clone());
     auth.expires_at = Some(chrono_timestamp() + tokens.expires_in);
+
+    let config = state.config.lock().map_err(|e| e.to_string())?;
+    save_persisted_data(&config, &auth);
 
     Ok(true)
 }
@@ -511,6 +582,9 @@ async fn wait_for_oauth_callback(state: State<'_, AppState>) -> Result<bool, Str
 async fn logout(state: State<'_, AppState>) -> Result<(), String> {
     let mut auth = state.auth.lock().map_err(|e| e.to_string())?;
     *auth = AuthState::default();
+
+    let config = state.config.lock().map_err(|e| e.to_string())?;
+    save_persisted_data(&config, &auth);
     Ok(())
 }
 
@@ -520,6 +594,16 @@ async fn get_my_playlists(state: State<'_, AppState>) -> Result<Vec<PlaylistInfo
 
     let client = reqwest::Client::new();
     let mut playlists = Vec::new();
+
+    // Add "Liked Videos" playlist manually (special playlist)
+    playlists.push(PlaylistInfo {
+        id: "LL".to_string(),
+        title: "Liked Videos".to_string(),
+        description: "Your liked videos".to_string(),
+        thumbnail: None,
+        video_count: 0,
+    });
+
     let mut page_token: Option<String> = None;
 
     loop {
@@ -551,15 +635,15 @@ async fn get_my_playlists(state: State<'_, AppState>) -> Result<Vec<PlaylistInfo
             .await
             .map_err(|e| format!("Failed to parse response: {}", e))?;
 
-        for item in data.items {
+        for item in data.items.unwrap_or_default() {
             playlists.push(PlaylistInfo {
                 id: item.id,
                 title: item.snippet.title,
-                description: item.snippet.description,
+                description: item.snippet.description.unwrap_or_default(),
                 thumbnail: item
                     .snippet
                     .thumbnails
-                    .and_then(|t| t.medium.or(t.default))
+                    .and_then(|t| t.medium.or(t.default).or(t.high))
                     .map(|t| t.url),
                 video_count: item
                     .content_details
@@ -591,7 +675,7 @@ async fn get_playlist_videos(
     loop {
         let mut url = format!(
             "https://www.googleapis.com/youtube/v3/playlistItems?\
-            part=snippet,contentDetails&\
+            part=snippet,contentDetails,status&\
             playlistId={}&\
             maxResults=50",
             playlist_id
@@ -618,15 +702,26 @@ async fn get_playlist_videos(
             .await
             .map_err(|e| format!("Failed to parse response: {}", e))?;
 
-        for item in data.items {
+        for item in data.items.unwrap_or_default() {
+            // Skip deleted or private videos
+            let title = &item.snippet.title;
+            if title == "Deleted video" || title == "Private video" {
+                continue;
+            }
+
+            // Skip if no video ID
+            let Some(content) = item.content_details else {
+                continue;
+            };
+
             videos.push(VideoInfo {
-                id: item.content_details.video_id,
+                id: content.video_id,
                 title: item.snippet.title,
                 channel: item.snippet.channel_title.unwrap_or_default(),
                 thumbnail: item
                     .snippet
                     .thumbnails
-                    .and_then(|t| t.default)
+                    .and_then(|t| t.default.or(t.medium))
                     .map(|t| t.url),
             });
         }
@@ -640,7 +735,6 @@ async fn get_playlist_videos(
     Ok(videos)
 }
 
-// Helper to get a valid access token, refreshing if needed
 async fn get_valid_token(state: &State<'_, AppState>) -> Result<String, String> {
     let (access_token, refresh_token, expires_at, config) = {
         let auth = state.auth.lock().map_err(|e| e.to_string())?;
@@ -653,12 +747,10 @@ async fn get_valid_token(state: &State<'_, AppState>) -> Result<String, String> 
         )
     };
 
-    let access_token = access_token.ok_or("Not logged in")?;
+    let access_token = access_token.ok_or("Not logged in. Please log in first.")?;
 
-    // Check if token is expired (with 60 second buffer)
     if let Some(expires) = expires_at {
         if chrono_timestamp() > expires - 60 {
-            // Token expired, try to refresh
             if let Some(refresh) = refresh_token {
                 let client = reqwest::Client::new();
                 let response = client
@@ -683,6 +775,8 @@ async fn get_valid_token(state: &State<'_, AppState>) -> Result<String, String> 
                     auth.access_token = Some(tokens.access_token.clone());
                     auth.expires_at = Some(chrono_timestamp() + tokens.expires_in);
 
+                    save_persisted_data(&config, &auth);
+
                     return Ok(tokens.access_token);
                 }
             }
@@ -704,12 +798,15 @@ fn chrono_timestamp() -> i64 {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Load persisted data
+    let persisted = load_persisted_data();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .manage(AppState {
-            auth: Mutex::new(AuthState::default()),
-            config: Mutex::new(YouTubeConfig::default()),
+            auth: Mutex::new(persisted.auth),
+            config: Mutex::new(persisted.config),
         })
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -724,9 +821,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             list_drives,
             check_ytdlp,
+            check_ffmpeg,
             download_audio,
             download_videos,
             set_youtube_config,
+            get_youtube_config,
             get_auth_status,
             start_oauth,
             wait_for_oauth_callback,

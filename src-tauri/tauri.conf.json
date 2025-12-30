@@ -11,8 +11,10 @@
     "windows": [
       {
         "title": "Music For Mom",
-        "width": 520,
-        "height": 650,
+        "width": 700,
+        "height": 750,
+        "minWidth": 500,
+        "minHeight": 600,
         "resizable": true,
         "fullscreen": false,
         "center": true
