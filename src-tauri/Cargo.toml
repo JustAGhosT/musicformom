@@ -23,4 +23,9 @@ tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
-tokio = { version = "1", features = ["process", "io-util"] }
+tokio = { version = "1", features = ["process", "io-util", "sync", "net"] }
+reqwest = { version = "0.12", features = ["json"] }
+open = "5"
+tiny_http = "0.12"
+url = "2"
+urlencoding = "2"

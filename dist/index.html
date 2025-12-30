@@ -15,124 +15,322 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       padding: 20px;
     }
 
     .container {
       background: white;
       border-radius: 20px;
-      padding: 40px;
-      max-width: 500px;
-      width: 100%;
+      padding: 30px;
+      max-width: 800px;
+      margin: 0 auto;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     }
 
     h1 {
       color: #333;
       text-align: center;
-      margin-bottom: 10px;
-      font-size: 28px;
+      margin-bottom: 8px;
+      font-size: 26px;
     }
 
     .subtitle {
       color: #666;
       text-align: center;
-      margin-bottom: 30px;
-      font-size: 16px;
+      margin-bottom: 20px;
+      font-size: 14px;
     }
 
-    .form-group {
+    /* Tabs */
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid #e0e0e0;
       margin-bottom: 20px;
+    }
+
+    .tab {
+      padding: 12px 24px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      font-size: 14px;
+      color: #666;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.2s;
+    }
+
+    .tab:hover {
+      color: #667eea;
+    }
+
+    .tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+      font-weight: 600;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Form elements */
+    .form-group {
+      margin-bottom: 16px;
     }
 
     label {
       display: block;
       color: #333;
       font-weight: 600;
-      margin-bottom: 8px;
-      font-size: 14px;
+      margin-bottom: 6px;
+      font-size: 13px;
     }
 
-    input[type="text"] {
+    input[type="text"], input[type="password"] {
       width: 100%;
-      padding: 15px;
+      padding: 12px;
       border: 2px solid #e0e0e0;
-      border-radius: 10px;
-      font-size: 16px;
+      border-radius: 8px;
+      font-size: 14px;
       transition: border-color 0.3s;
     }
 
-    input[type="text"]:focus {
+    input:focus {
       outline: none;
       border-color: #667eea;
     }
 
     select {
       width: 100%;
-      padding: 15px;
+      padding: 12px;
       border: 2px solid #e0e0e0;
-      border-radius: 10px;
-      font-size: 16px;
+      border-radius: 8px;
+      font-size: 14px;
       background: white;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
       cursor: pointer;
+      transition: all 0.2s;
     }
 
-    select:focus {
-      outline: none;
-      border-color: #667eea;
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
     }
 
-    .folder-select {
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-row {
       display: flex;
       gap: 10px;
+      margin-top: 16px;
+    }
+
+    /* User info */
+    .user-status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    .user-status.logged-in {
+      background: #d4edda;
+    }
+
+    /* Playlists */
+    .playlist-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .playlist-card {
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .playlist-card:hover {
+      border-color: #667eea;
+      transform: translateY(-2px);
+    }
+
+    .playlist-card img {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      background: #f0f0f0;
+    }
+
+    .playlist-card .info {
+      padding: 12px;
+    }
+
+    .playlist-card .title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .playlist-card .count {
+      color: #666;
+      font-size: 12px;
+    }
+
+    /* Videos list */
+    .videos-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #667eea;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .video-list {
+      max-height: 400px;
+      overflow-y: auto;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+    }
+
+    .video-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .video-item:last-child {
+      border-bottom: none;
+    }
+
+    .video-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+    }
+
+    .video-item img {
+      width: 80px;
+      height: 45px;
+      object-fit: cover;
+      border-radius: 4px;
+      background: #f0f0f0;
+    }
+
+    .video-item .video-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .video-item .video-title {
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .video-item .video-channel {
+      font-size: 11px;
+      color: #666;
+    }
+
+    .select-actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .select-actions button {
+      font-size: 12px;
+      padding: 6px 12px;
+    }
+
+    /* Folder select */
+    .folder-select {
+      display: flex;
+      gap: 8px;
     }
 
     .folder-select input {
       flex: 1;
     }
 
-    .folder-select button {
-      padding: 15px 20px;
-      background: #f0f0f0;
-      border: 2px solid #e0e0e0;
-      border-radius: 10px;
-      cursor: pointer;
-      font-size: 16px;
+    .quick-drives {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap;
     }
 
-    .folder-select button:hover {
+    .drive-btn {
+      padding: 6px 12px;
+      background: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .drive-btn:hover {
       background: #e0e0e0;
     }
 
-    .download-btn {
-      width: 100%;
-      padding: 18px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-size: 18px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-      margin-top: 10px;
-    }
-
-    .download-btn:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
-    }
-
-    .download-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
+    /* Progress */
     .progress-container {
-      margin-top: 25px;
+      margin-top: 20px;
       display: none;
     }
 
@@ -141,9 +339,9 @@
     }
 
     .progress-bar {
-      height: 20px;
+      height: 16px;
       background: #e0e0e0;
-      border-radius: 10px;
+      border-radius: 8px;
       overflow: hidden;
     }
 
@@ -156,17 +354,18 @@
 
     .progress-text {
       text-align: center;
-      margin-top: 10px;
+      margin-top: 8px;
       color: #666;
-      font-size: 14px;
+      font-size: 13px;
     }
 
+    /* Status messages */
     .status {
-      text-align: center;
-      margin-top: 20px;
-      padding: 15px;
-      border-radius: 10px;
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 16px;
       display: none;
+      font-size: 13px;
     }
 
     .status.success {
@@ -188,29 +387,35 @@
     }
 
     .help-text {
-      font-size: 12px;
+      font-size: 11px;
       color: #888;
-      margin-top: 5px;
+      margin-top: 4px;
     }
 
-    .quick-drives {
-      display: flex;
-      gap: 8px;
-      margin-top: 10px;
-      flex-wrap: wrap;
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
     }
 
-    .drive-btn {
-      padding: 8px 16px;
-      background: #f0f0f0;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 13px;
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #666;
     }
 
-    .drive-btn:hover {
-      background: #e0e0e0;
+    /* Settings */
+    .settings-section {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .settings-section h3 {
+      font-size: 14px;
+      margin-bottom: 12px;
+      color: #333;
     }
   </style>
 </head>
@@ -220,48 +425,137 @@
     <p class="subtitle">Download YouTube music to your USB drive</p>
 
     <div id="ytdlp-warning" class="status warning" style="display: none;">
-      yt-dlp is not installed! Please install it first.
+      yt-dlp is not installed. Please install it first.
     </div>
 
-    <form id="download-form">
-      <div class="form-group">
-        <label for="url">YouTube Link</label>
-        <input
-          type="text"
-          id="url"
-          placeholder="Paste YouTube link here..."
-          autocomplete="off"
-        >
-        <p class="help-text">Works with songs, playlists, and albums</p>
-      </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="download">Download</button>
+      <button class="tab" data-tab="playlists">My Playlists</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </div>
 
-      <div class="form-group">
-        <label for="output-dir">Save To</label>
-        <div class="folder-select">
-          <input
-            type="text"
-            id="output-dir"
-            placeholder="Select folder..."
-            readonly
-          >
-          <button type="button" id="browse-btn">Browse</button>
+    <!-- Download Tab -->
+    <div id="download-tab" class="tab-content active">
+      <form id="download-form">
+        <div class="form-group">
+          <label for="url">YouTube Link</label>
+          <input type="text" id="url" placeholder="Paste YouTube link here...">
+          <p class="help-text">Works with songs, playlists, and albums</p>
         </div>
-        <div id="quick-drives" class="quick-drives"></div>
+
+        <div class="form-group">
+          <label for="output-dir">Save To</label>
+          <div class="folder-select">
+            <input type="text" id="output-dir" placeholder="Select folder..." readonly>
+            <button type="button" id="browse-btn" class="btn btn-secondary">Browse</button>
+          </div>
+          <div id="quick-drives" class="quick-drives"></div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="download-btn" style="width: 100%;">
+          Download Music
+        </button>
+      </form>
+
+      <div id="progress" class="progress-container">
+        <div class="progress-bar">
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+        <p id="progress-text" class="progress-text">Starting...</p>
       </div>
 
-      <button type="submit" class="download-btn" id="download-btn">
-        Download Music
-      </button>
-    </form>
-
-    <div id="progress" class="progress-container">
-      <div class="progress-bar">
-        <div id="progress-fill" class="progress-fill"></div>
-      </div>
-      <p id="progress-text" class="progress-text">Starting download...</p>
+      <div id="status" class="status"></div>
     </div>
 
-    <div id="status" class="status"></div>
+    <!-- Playlists Tab -->
+    <div id="playlists-tab" class="tab-content">
+      <div id="auth-section">
+        <div id="user-status" class="user-status">
+          <span id="auth-message">Not logged in</span>
+          <button id="login-btn" class="btn btn-primary">Login with Google</button>
+        </div>
+      </div>
+
+      <div id="playlists-view">
+        <div id="playlists-loading" class="loading" style="display: none;">
+          Loading your playlists...
+        </div>
+        <div id="playlists-empty" class="empty-state" style="display: none;">
+          Login to see your YouTube playlists
+        </div>
+        <div id="playlist-grid" class="playlist-grid"></div>
+      </div>
+
+      <div id="videos-view" style="display: none;">
+        <div class="videos-header">
+          <div class="back-btn" id="back-to-playlists">
+            ← Back to Playlists
+          </div>
+          <h3 id="playlist-title"></h3>
+        </div>
+
+        <div class="form-group">
+          <label>Save To</label>
+          <div class="folder-select">
+            <input type="text" id="playlist-output-dir" placeholder="Select folder..." readonly>
+            <button type="button" id="playlist-browse-btn" class="btn btn-secondary">Browse</button>
+          </div>
+          <div id="playlist-quick-drives" class="quick-drives"></div>
+        </div>
+
+        <div class="select-actions">
+          <button class="btn btn-secondary" id="select-all-btn">Select All</button>
+          <button class="btn btn-secondary" id="select-none-btn">Select None</button>
+          <span id="selected-count" style="margin-left: auto; color: #666; font-size: 13px;">0 selected</span>
+        </div>
+
+        <div id="video-list" class="video-list"></div>
+
+        <button id="download-selected-btn" class="btn btn-primary" style="width: 100%; margin-top: 16px;">
+          Download Selected
+        </button>
+
+        <div id="playlist-progress" class="progress-container">
+          <div class="progress-bar">
+            <div id="playlist-progress-fill" class="progress-fill"></div>
+          </div>
+          <p id="playlist-progress-text" class="progress-text">Starting...</p>
+        </div>
+
+        <div id="playlist-status" class="status"></div>
+      </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div id="settings-tab" class="tab-content">
+      <div class="settings-section">
+        <h3>YouTube API Configuration</h3>
+        <p class="help-text" style="margin-bottom: 12px;">
+          To browse your playlists, you need to set up YouTube API credentials.
+          <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Get credentials here</a>
+        </p>
+
+        <div class="form-group">
+          <label for="client-id">Client ID</label>
+          <input type="text" id="client-id" placeholder="Your OAuth Client ID">
+        </div>
+
+        <div class="form-group">
+          <label for="client-secret">Client Secret</label>
+          <input type="password" id="client-secret" placeholder="Your OAuth Client Secret">
+        </div>
+
+        <button id="save-config-btn" class="btn btn-primary">Save Configuration</button>
+      </div>
+
+      <div class="settings-section">
+        <h3>Account</h3>
+        <div id="settings-auth-status" class="user-status">
+          <span>Not logged in</span>
+        </div>
+        <button id="settings-logout-btn" class="btn btn-danger" style="display: none;">Logout</button>
+      </div>
+    </div>
   </div>
 
   <script type="module">
@@ -269,143 +563,348 @@
     const { listen } = window.__TAURI__.event;
     const { open } = window.__TAURI__.dialog;
 
-    // Elements
-    const form = document.getElementById('download-form');
-    const urlInput = document.getElementById('url');
-    const outputDirInput = document.getElementById('output-dir');
-    const browseBtn = document.getElementById('browse-btn');
-    const downloadBtn = document.getElementById('download-btn');
-    const progressContainer = document.getElementById('progress');
-    const progressFill = document.getElementById('progress-fill');
-    const progressText = document.getElementById('progress-text');
-    const statusDiv = document.getElementById('status');
-    const quickDrivesDiv = document.getElementById('quick-drives');
-    const ytdlpWarning = document.getElementById('ytdlp-warning');
+    // State
+    let isLoggedIn = false;
+    let currentPlaylistId = null;
+    let videos = [];
 
-    // Check if yt-dlp is installed
+    // Elements
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    // Tab switching
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const tabId = tab.dataset.tab;
+        tabs.forEach(t => t.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(`${tabId}-tab`).classList.add('active');
+
+        if (tabId === 'playlists') {
+          checkAuthAndLoadPlaylists();
+        }
+      });
+    });
+
+    // Check yt-dlp
     async function checkYtdlp() {
       try {
         const installed = await invoke('check_ytdlp');
         if (!installed) {
-          ytdlpWarning.style.display = 'block';
+          document.getElementById('ytdlp-warning').style.display = 'block';
         }
       } catch (e) {
-        ytdlpWarning.style.display = 'block';
+        document.getElementById('ytdlp-warning').style.display = 'block';
       }
     }
 
-    // Load available drives
+    // Load drives
     async function loadDrives() {
       try {
         const drives = await invoke('list_drives');
-        quickDrivesDiv.innerHTML = '';
+        const containers = ['quick-drives', 'playlist-quick-drives'];
 
-        drives.forEach(drive => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'drive-btn';
-          btn.textContent = drive.name;
-          btn.onclick = () => {
-            outputDirInput.value = drive.path;
-          };
-          quickDrivesDiv.appendChild(btn);
+        containers.forEach(containerId => {
+          const container = document.getElementById(containerId);
+          container.innerHTML = '';
+
+          drives.forEach(drive => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'drive-btn';
+            btn.textContent = drive.name;
+            btn.onclick = () => {
+              document.getElementById(containerId === 'quick-drives' ? 'output-dir' : 'playlist-output-dir').value = drive.path;
+            };
+            container.appendChild(btn);
+          });
+
+          if (drives.length === 0) {
+            container.innerHTML = '<span class="help-text">No USB drives detected</span>';
+          }
         });
-
-        if (drives.length === 0) {
-          quickDrivesDiv.innerHTML = '<span class="help-text">No USB drives detected</span>';
-        }
       } catch (e) {
         console.error('Failed to load drives:', e);
       }
     }
 
-    // Browse for folder
-    browseBtn.addEventListener('click', async () => {
-      try {
-        const selected = await open({
-          directory: true,
-          multiple: false,
-          title: 'Select folder to save music'
-        });
-        if (selected) {
-          outputDirInput.value = selected;
-        }
-      } catch (e) {
-        console.error('Failed to open folder dialog:', e);
-      }
+    // Browse buttons
+    document.getElementById('browse-btn').addEventListener('click', async () => {
+      const selected = await open({ directory: true, multiple: false });
+      if (selected) document.getElementById('output-dir').value = selected;
     });
 
-    // Listen for progress updates
-    listen('download-progress', (event) => {
-      const { status, message, percent } = event.payload;
-
-      progressContainer.classList.add('visible');
-      progressText.textContent = message;
-
-      if (percent !== null) {
-        progressFill.style.width = `${percent}%`;
-      }
-
-      if (status === 'complete') {
-        showStatus('success', message);
-        downloadBtn.disabled = false;
-        downloadBtn.textContent = 'Download Music';
-      }
+    document.getElementById('playlist-browse-btn').addEventListener('click', async () => {
+      const selected = await open({ directory: true, multiple: false });
+      if (selected) document.getElementById('playlist-output-dir').value = selected;
     });
 
-    // Handle form submission
-    form.addEventListener('submit', async (e) => {
+    // Download form
+    document.getElementById('download-form').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const url = document.getElementById('url').value.trim();
+      const outputDir = document.getElementById('output-dir').value.trim();
 
-      const url = urlInput.value.trim();
-      const outputDir = outputDirInput.value.trim();
-
-      if (!url) {
-        showStatus('error', 'Please paste a YouTube link');
+      if (!url || !outputDir) {
+        showStatus('status', 'error', 'Please fill in all fields');
         return;
       }
 
-      if (!outputDir) {
-        showStatus('error', 'Please select a folder to save music');
-        return;
-      }
-
-      // Validate URL
-      if (!url.includes('youtube.com') && !url.includes('youtu.be')) {
-        showStatus('error', 'Please enter a valid YouTube link');
-        return;
-      }
-
-      // Start download
-      downloadBtn.disabled = true;
-      downloadBtn.textContent = 'Downloading...';
-      statusDiv.className = 'status';
-      statusDiv.style.display = 'none';
-      progressContainer.classList.add('visible');
-      progressFill.style.width = '0%';
-      progressText.textContent = 'Starting download...';
+      const btn = document.getElementById('download-btn');
+      btn.disabled = true;
+      btn.textContent = 'Downloading...';
+      document.getElementById('progress').classList.add('visible');
 
       try {
         await invoke('download_audio', { url, outputDir });
       } catch (error) {
-        showStatus('error', `Error: ${error}`);
-        downloadBtn.disabled = false;
-        downloadBtn.textContent = 'Download Music';
-        progressContainer.classList.remove('visible');
+        showStatus('status', 'error', error);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Download Music';
       }
     });
 
-    function showStatus(type, message) {
-      statusDiv.className = `status ${type}`;
-      statusDiv.textContent = message;
-      statusDiv.style.display = 'block';
+    // Progress listener
+    listen('download-progress', (event) => {
+      const { status, message, percent } = event.payload;
+
+      // Update both progress displays
+      ['', 'playlist-'].forEach(prefix => {
+        const progressContainer = document.getElementById(`${prefix}progress`);
+        const progressFill = document.getElementById(`${prefix}progress-fill`);
+        const progressText = document.getElementById(`${prefix}progress-text`);
+
+        if (progressContainer && progressFill && progressText) {
+          progressContainer.classList.add('visible');
+          progressText.textContent = message;
+          if (percent !== null) {
+            progressFill.style.width = `${percent}%`;
+          }
+        }
+      });
+
+      if (status === 'complete') {
+        showStatus('status', 'success', message);
+        showStatus('playlist-status', 'success', message);
+      }
+    });
+
+    // Auth functions
+    async function checkAuthAndLoadPlaylists() {
+      try {
+        isLoggedIn = await invoke('get_auth_status');
+        updateAuthUI();
+
+        if (isLoggedIn) {
+          await loadPlaylists();
+        }
+      } catch (e) {
+        console.error('Auth check failed:', e);
+      }
     }
 
-    // Initialize
+    function updateAuthUI() {
+      const userStatus = document.getElementById('user-status');
+      const authMessage = document.getElementById('auth-message');
+      const loginBtn = document.getElementById('login-btn');
+      const settingsStatus = document.getElementById('settings-auth-status');
+      const logoutBtn = document.getElementById('settings-logout-btn');
+
+      if (isLoggedIn) {
+        userStatus.classList.add('logged-in');
+        authMessage.textContent = 'Logged in to YouTube';
+        loginBtn.style.display = 'none';
+        settingsStatus.innerHTML = '<span>Logged in to YouTube</span>';
+        settingsStatus.classList.add('logged-in');
+        logoutBtn.style.display = 'block';
+        document.getElementById('playlists-empty').style.display = 'none';
+      } else {
+        userStatus.classList.remove('logged-in');
+        authMessage.textContent = 'Not logged in';
+        loginBtn.style.display = 'block';
+        settingsStatus.innerHTML = '<span>Not logged in</span>';
+        settingsStatus.classList.remove('logged-in');
+        logoutBtn.style.display = 'none';
+        document.getElementById('playlists-empty').style.display = 'block';
+        document.getElementById('playlist-grid').innerHTML = '';
+      }
+    }
+
+    document.getElementById('login-btn').addEventListener('click', async () => {
+      try {
+        await invoke('start_oauth');
+        document.getElementById('auth-message').textContent = 'Waiting for login...';
+
+        const success = await invoke('wait_for_oauth_callback');
+        if (success) {
+          isLoggedIn = true;
+          updateAuthUI();
+          await loadPlaylists();
+        }
+      } catch (e) {
+        showStatus('playlist-status', 'error', e);
+      }
+    });
+
+    document.getElementById('settings-logout-btn').addEventListener('click', async () => {
+      await invoke('logout');
+      isLoggedIn = false;
+      updateAuthUI();
+    });
+
+    // Playlists
+    async function loadPlaylists() {
+      const grid = document.getElementById('playlist-grid');
+      const loading = document.getElementById('playlists-loading');
+
+      loading.style.display = 'block';
+      grid.innerHTML = '';
+
+      try {
+        const playlists = await invoke('get_my_playlists');
+
+        grid.innerHTML = playlists.map(pl => `
+          <div class="playlist-card" data-id="${pl.id}">
+            <img src="${pl.thumbnail || ''}" alt="" onerror="this.style.background='#e0e0e0'">
+            <div class="info">
+              <div class="title">${escapeHtml(pl.title)}</div>
+              <div class="count">${pl.video_count} videos</div>
+            </div>
+          </div>
+        `).join('');
+
+        // Click handlers
+        grid.querySelectorAll('.playlist-card').forEach(card => {
+          card.addEventListener('click', () => openPlaylist(card.dataset.id, card.querySelector('.title').textContent));
+        });
+      } catch (e) {
+        showStatus('playlist-status', 'error', e);
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+
+    async function openPlaylist(playlistId, title) {
+      currentPlaylistId = playlistId;
+      document.getElementById('playlists-view').style.display = 'none';
+      document.getElementById('videos-view').style.display = 'block';
+      document.getElementById('playlist-title').textContent = title;
+
+      const videoList = document.getElementById('video-list');
+      videoList.innerHTML = '<div class="loading">Loading videos...</div>';
+
+      try {
+        videos = await invoke('get_playlist_videos', { playlistId });
+
+        videoList.innerHTML = videos.map((v, idx) => `
+          <div class="video-item">
+            <input type="checkbox" data-id="${v.id}" data-idx="${idx}" checked>
+            <img src="${v.thumbnail || ''}" alt="">
+            <div class="video-info">
+              <div class="video-title">${escapeHtml(v.title)}</div>
+              <div class="video-channel">${escapeHtml(v.channel)}</div>
+            </div>
+          </div>
+        `).join('');
+
+        updateSelectedCount();
+
+        // Checkbox change handlers
+        videoList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+          cb.addEventListener('change', updateSelectedCount);
+        });
+      } catch (e) {
+        videoList.innerHTML = `<div class="empty-state">Error: ${e}</div>`;
+      }
+    }
+
+    function updateSelectedCount() {
+      const checked = document.querySelectorAll('#video-list input:checked').length;
+      document.getElementById('selected-count').textContent = `${checked} selected`;
+    }
+
+    document.getElementById('back-to-playlists').addEventListener('click', () => {
+      document.getElementById('playlists-view').style.display = 'block';
+      document.getElementById('videos-view').style.display = 'none';
+    });
+
+    document.getElementById('select-all-btn').addEventListener('click', () => {
+      document.querySelectorAll('#video-list input').forEach(cb => cb.checked = true);
+      updateSelectedCount();
+    });
+
+    document.getElementById('select-none-btn').addEventListener('click', () => {
+      document.querySelectorAll('#video-list input').forEach(cb => cb.checked = false);
+      updateSelectedCount();
+    });
+
+    document.getElementById('download-selected-btn').addEventListener('click', async () => {
+      const outputDir = document.getElementById('playlist-output-dir').value.trim();
+      if (!outputDir) {
+        showStatus('playlist-status', 'error', 'Please select a folder');
+        return;
+      }
+
+      const selectedIds = Array.from(document.querySelectorAll('#video-list input:checked'))
+        .map(cb => cb.dataset.id);
+
+      if (selectedIds.length === 0) {
+        showStatus('playlist-status', 'error', 'No videos selected');
+        return;
+      }
+
+      const btn = document.getElementById('download-selected-btn');
+      btn.disabled = true;
+      btn.textContent = 'Downloading...';
+      document.getElementById('playlist-progress').classList.add('visible');
+
+      try {
+        await invoke('download_videos', { videoIds: selectedIds, outputDir });
+      } catch (e) {
+        showStatus('playlist-status', 'error', e);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Download Selected';
+      }
+    });
+
+    // Settings
+    document.getElementById('save-config-btn').addEventListener('click', async () => {
+      const clientId = document.getElementById('client-id').value.trim();
+      const clientSecret = document.getElementById('client-secret').value.trim();
+
+      if (!clientId || !clientSecret) {
+        alert('Please enter both Client ID and Client Secret');
+        return;
+      }
+
+      try {
+        await invoke('set_youtube_config', { clientId, clientSecret });
+        alert('Configuration saved!');
+      } catch (e) {
+        alert('Error: ' + e);
+      }
+    });
+
+    // Helpers
+    function showStatus(elementId, type, message) {
+      const el = document.getElementById(elementId);
+      el.className = `status ${type}`;
+      el.textContent = message;
+      el.style.display = 'block';
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Init
     checkYtdlp();
     loadDrives();
-
-    // Refresh drives every 5 seconds (in case USB is plugged in)
     setInterval(loadDrives, 5000);
   </script>
 </body>
